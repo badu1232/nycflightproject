@@ -79,7 +79,7 @@ ggplot(data = flights, mapping = aes(x = distance)) +
     y = "Number of flights"
   )
 ```
-###Interpretation
+### Interpretation
 
 The histogram shows the distribution of flight distances in miles. I tested several bin widths (5, 50, 100 and 500). A width of 100 miles shows the shape of the distribution well: 5 and 50 are too fragmented, and 500 hides the structure. The distances range from `r min(flights$distance)` miles to `r max(flights$distance)` miles, and the median distance is `r median(flights$distance)` miles, so most flights are short or medium haul. Fewer flights cover very long distances (for example, the longest is `r max(flights$distance)` miles). The height of each bar indicates how many flights fall within the corresponding distance interval.
 
@@ -96,7 +96,7 @@ g3 <- ggplot(data = planes, mapping = aes(y = seats)) +
   labs(title = "Histogram", y = "Number of seats", x = "Count")
 g1 + g2 + g3
 ```
-###Interpretation
+### Interpretation
 
 The dot plot shows the individual seat counts of the aircraft, making it possible to see individual observations and repeated values. However, many points lie on top of each other (overplotting), so we cannot see how many planes share a value. The boxplot summarizes the distribution using the median, quartiles, and potential outliers, but does not show every observation or the number of planes. The histogram shows the frequency of different seat counts and reveals which ranges are most common, but the picture depends on the chosen bin width. The dot plot provides detailed information, the boxplot is useful for a compact summary and for comparing groups, and the histogram is useful for understanding the overall shape of the distribution.
 
@@ -133,7 +133,7 @@ The boxplots compare the number of seats among aircraft with different numbers o
 engine_summary |>
   kable(col.names = c("Engines", "Number of planes", "Median seats", "Min seats", "Max seats"))
 ```
-###Interpretation
+### Interpretation
 
 Most planes (`r engine_summary$n_planes[engine_summary$engines == 2]` of `r nrow(planes)`) have two engines, and this group covers a wide range of seat numbers (`r engine_summary$min_seats[engine_summary$engines == 2]` to `r engine_summary$max_seats[engine_summary$engines == 2]` seats). The group with the highest median seat count is the group with `r engine_summary$engines[which.max(engine_summary$median_seats)]` engines (median `r max(engine_summary$median_seats)` seats), and the group with the lowest median is the group with `r engine_summary$engines[which.min(engine_summary$median_seats)]` engine(s) (median `r min(engine_summary$median_seats)` seats). In general, aircraft with more engines are larger, but the number of engines is not a perfect predictor of capacity, because the two-engine group overlaps strongly with the others.
 
@@ -158,7 +158,7 @@ ggplot(
     color = "Origin airport"
   )
 ```
-###Interpretation
+### Interpretation
 
 The scatterplot shows the relationship between departure and arrival delays for a random sample of 5,000 flights. Negative values indicate flights that departed or arrived earlier than scheduled. Yes, there are flights that depart and arrive earlier than planned: in the full data the earliest departure left `r abs(min(flights$dep_delay, na.rm = TRUE))` minutes early and the earliest arrival came `r abs(min(flights$arr_delay, na.rm = TRUE))` minutes early. The points follow the dashed line (arrival delay = departure delay) closely, and the correlation between both delays is `r round(cor(flights$dep_delay, flights$arr_delay, use = "complete.obs"), 2)`. So the main source of arrival delay is the departure delay: a flight that leaves late usually arrives late by about the same amount. Flights below the dashed line made up time during the flight, while flights above it lost additional time after departure. The points are spread around the line, but the cloud is roughly parallel to it, which means that the flight itself adds or removes only a few minutes.
 
@@ -202,7 +202,7 @@ flights |>
     y = "Number of flights"
   )
 ```
-###Interpretation
+### Interpretation
 
 Average speed is computed as distance (converted from miles to km) divided by air time (converted from minutes to hours). The speed values are reasonable for passenger jets (median about `r round(median(flights$distance * 1.60934 / (flights$air_time / 60), na.rm = TRUE))` km/h). Most flights cluster around typical jet cruising averages, with a tail of slower values on short flights, where climb and descent make up a large share of the air time. Flights with missing `air_time` (cancelled or diverted) are excluded.
 
