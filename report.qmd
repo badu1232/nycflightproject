@@ -1,0 +1,544 @@
+---
+title: "New York City Flights 2013"
+author: "Badusha Naniyil Abdul Kareem"
+format:
+  html:
+    embed-resources: true
+    code-fold: true
+---
+
+This Homework Project works with dataframes in the package `nycflights13` about flights, specifically a sample of domestic flights that departed from the three major New York City airports in 2013.
+
+## Data overview
+
+```{r}
+#| label: packages-data
+#| message: false  # We do not want to see the tidyverse loading message in our document
+#| echo: false
+library(tidyverse)
+library(patchwork) # Install this package before. It helps to combine different plots.
+library(nycflights13)
+library(knitr)
+```
+
+The data package `nycflights13` package contains five tabular data frames. In total there is information about:
+
+- `r nrow(airlines)` **airlines**
+- `r nrow(airports)` **airports**
+- `r nrow(planes)` **planes**
+- `r nrow(flights)` **flights**
+- `r nrow(weather)` **weather** observations
+
+The core dataframe `flights` has the following variables:
+
+`year`, `month`, `day`: **Date** of departure.\
+`dep_time`, `arr_time`: Actual **departure** and **arrival** times (format HHMM or HMM), local time zone.\
+`sched_dep_time`, `sched_arr_time`: **Scheduled departure** and **arrival** times (format HHMM or HMM), local time zone.\
+`dep_delay`, `arr_delay`: **Departure** and **arrival delays**, in minutes. Negative times represent early departures/arrivals.\
+`carrier`: Two letter **carrier** abbreviation. See `airlines`-dataframe to get the full name.
+
+`flight`: Flight number.\
+`tailnum`: Tail number identifying the aircraft. See the `planes` dataframe for aircraft information.\
+`origin`: Origin airport code.\
+`dest`: Destination airport code.\
+`air_time`: Time spent in the air, in minutes.\
+`distance`: Distance between the origin and destination airports, in miles.\
+`hour`, `minute`: Scheduled departure hour and minute.\
+`time_hour`: Scheduled date and hour of the flight, stored as a date-time value.
+
+## Basic data visualization
+
+```{r}
+#| label: flightsorigin
+
+ggplot(data = flights, mapping = aes(x = origin)) +
+  geom_bar() +
+  labs(
+    title = "Number of Departing Flights by Airport",
+    x = "Origin airport",
+    y = "Number of flights"
+  )
+```
+
+```{r}
+#| label: origin-counts
+#| echo: false
+origin_counts <- flights |> count(origin, sort = TRUE)
+```
+
+The dataset includes three New York City departure airports: EWR (Newark Liberty International Airport), JFK (John F. Kennedy International Airport), and LGA (LaGuardia Airport). The bar chart shows the number of flights departing from each airport. `r origin_counts$origin[1]` has the most departing flights (`r origin_counts$n[1]`), while `r origin_counts$origin[3]` has the fewest (`r origin_counts$n[3]`).
+
+```{r}
+#| label: flightsdistance
+
+ggplot(data = flights, mapping = aes(x = distance)) +
+  geom_histogram(binwidth = 100) +
+  labs(
+    title = "Distribution of Flight Distances",
+    x = "Flight distance (miles)",
+    y = "Number of flights"
+  )
+```
+###Interpretation
+
+The histogram shows the distribution of flight distances in miles. I tested several bin widths (5, 50, 100 and 500). A width of 100 miles shows the shape of the distribution well: 5 and 50 are too fragmented, and 500 hides the structure. The distances range from `r min(flights$distance)` miles to `r max(flights$distance)` miles, and the median distance is `r median(flights$distance)` miles, so most flights are short or medium haul. Fewer flights cover very long distances (for example, the longest is `r max(flights$distance)` miles). The height of each bar indicates how many flights fall within the corresponding distance interval.
+
+```{r}
+#| label: distributions
+g1 <- ggplot(data = planes, mapping = aes(y = seats, x = 0)) +
+  geom_point() +
+  labs(title = "Dot plot", x = NULL, y = "Number of seats")
+g2 <- ggplot(data = planes, mapping = aes(y = seats)) +
+  geom_boxplot() +
+  labs(title = "Boxplot", y = "Number of seats")
+g3 <- ggplot(data = planes, mapping = aes(y = seats)) +
+  geom_histogram(binwidth = 10) +
+  labs(title = "Histogram", y = "Number of seats", x = "Count")
+g1 + g2 + g3
+```
+###Interpretation
+
+The dot plot shows the individual seat counts of the aircraft, making it possible to see individual observations and repeated values. However, many points lie on top of each other (overplotting), so we cannot see how many planes share a value. The boxplot summarizes the distribution using the median, quartiles, and potential outliers, but does not show every observation or the number of planes. The histogram shows the frequency of different seat counts and reveals which ranges are most common, but the picture depends on the chosen bin width. The dot plot provides detailed information, the boxplot is useful for a compact summary and for comparing groups, and the histogram is useful for understanding the overall shape of the distribution.
+
+```{r}
+#| label: engine-seats
+ggplot(data = planes, mapping = aes(x = factor(engines), y = seats)) +
+  geom_boxplot() +
+  labs(
+    title = "Aircraft Seats by Number of Engines",
+    x = "Number of engines",
+    y = "Number of seats"
+  )
+```
+
+```{r}
+#| label: engine-summary
+#| echo: false
+engine_summary <- planes |>
+  summarize(
+    n_planes = n(),
+    median_seats = median(seats),
+    min_seats = min(seats),
+    max_seats = max(seats),
+    .by = engines
+  ) |>
+  arrange(engines)
+```
+
+The boxplots compare the number of seats among aircraft with different numbers of engines. The summary table below gives the numbers behind the graphic.
+
+```{r}
+#| label: engine-table
+#| echo: false
+engine_summary |>
+  kable(col.names = c("Engines", "Number of planes", "Median seats", "Min seats", "Max seats"))
+```
+###Interpretation
+
+Most planes (`r engine_summary$n_planes[engine_summary$engines == 2]` of `r nrow(planes)`) have two engines, and this group covers a wide range of seat numbers (`r engine_summary$min_seats[engine_summary$engines == 2]` to `r engine_summary$max_seats[engine_summary$engines == 2]` seats). The group with the highest median seat count is the group with `r engine_summary$engines[which.max(engine_summary$median_seats)]` engines (median `r max(engine_summary$median_seats)` seats), and the group with the lowest median is the group with `r engine_summary$engines[which.min(engine_summary$median_seats)]` engine(s) (median `r min(engine_summary$median_seats)` seats). In general, aircraft with more engines are larger, but the number of engines is not a perfect predictor of capacity, because the two-engine group overlaps strongly with the others.
+
+```{r}
+#| label: delays
+#| warning: false
+set.seed(123)
+ggplot(
+  data = slice_sample(flights, n = 5000),
+  mapping = aes(x = dep_delay, y = arr_delay, color = origin)
+) +
+  geom_point(alpha = 0.5) +
+  # Bonus: annotation lines
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "black") +  # arr_delay = dep_delay
+  geom_hline(yintercept = 0, linetype = "dotted", color = "grey40") +            # on-time arrival
+  geom_vline(xintercept = 0, linetype = "dotted", color = "grey40") +            # on-time departure
+  labs(
+    title = "Departure Delay versus Arrival Delay",
+    subtitle = "Dashed line: arrival delay = departure delay; dotted lines: on time",
+    x = "Departure delay (minutes)",
+    y = "Arrival delay (minutes)",
+    color = "Origin airport"
+  )
+```
+###Interpretation
+
+The scatterplot shows the relationship between departure and arrival delays for a random sample of 5,000 flights. Negative values indicate flights that departed or arrived earlier than scheduled. Yes, there are flights that depart and arrive earlier than planned: in the full data the earliest departure left `r abs(min(flights$dep_delay, na.rm = TRUE))` minutes early and the earliest arrival came `r abs(min(flights$arr_delay, na.rm = TRUE))` minutes early. The points follow the dashed line (arrival delay = departure delay) closely, and the correlation between both delays is `r round(cor(flights$dep_delay, flights$arr_delay, use = "complete.obs"), 2)`. So the main source of arrival delay is the departure delay: a flight that leaves late usually arrives late by about the same amount. Flights below the dashed line made up time during the flight, while flights above it lost additional time after departure. The points are spread around the line, but the cloud is roughly parallel to it, which means that the flight itself adds or removes only a few minutes.
+
+```{r}
+#| label: airportlocations
+ggplot(
+  data = airports |> filter(!is.na(tzone)),
+  mapping = aes(x = lon, y = lat, color = tzone)
+) +
+  geom_point() +
+  labs(
+    title = "Airport Locations by Time Zone",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Time zone"
+  ) +
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: timezones
+airports |>
+  filter(!is.na(tzone)) |>
+  summarize(number_of_time_zones = n_distinct(tzone))
+```
+
+The airports in the data are spread across `r airports |> filter(!is.na(tzone)) |> summarize(n_distinct(tzone)) |> pull()` distinct time zones (ignoring missing values). The map-like scatterplot shows that time zones follow longitude bands, with the Eastern zone dominating the east of the United States.
+
+## Data Wrangling
+
+```{r}
+#| label: flightsaveragespeed
+flights |>
+  filter(!is.na(air_time)) |>
+  mutate(speed = (distance * 1.60934) / (air_time / 60)) |>
+  ggplot(aes(x = speed)) +
+  geom_histogram(binwidth = 10) +
+  labs(
+    title = "Distribution of Flight Speeds",
+    x = "Average speed (km/h)",
+    y = "Number of flights"
+  )
+```
+###Interpretation
+
+Average speed is computed as distance (converted from miles to km) divided by air time (converted from minutes to hours). The speed values are reasonable for passenger jets (median about `r round(median(flights$distance * 1.60934 / (flights$air_time / 60), na.rm = TRUE))` km/h). Most flights cluster around typical jet cruising averages, with a tail of slower values on short flights, where climb and descent make up a large share of the air time. Flights with missing `air_time` (cancelled or diverted) are excluded.
+
+```{r}
+#| label: filtering
+# Flights arriving at least two hours late
+flights |>
+  filter(arr_delay >= 120) |>
+  nrow()
+
+# Flights to Houston
+flights |>
+  filter(dest %in% c("IAH", "HOU")) |>
+  nrow()
+
+# Flights arriving more than two hours late without departing late
+flights |>
+  filter(arr_delay > 120, dep_delay <= 0) |>
+  nrow()
+
+# Flights departing at least one hour late and making up over 30 minutes
+flights |>
+  filter(dep_delay >= 60, dep_delay - arr_delay > 30) |>
+  nrow()
+```
+
+`r flights |> filter(arr_delay >= 120) |> nrow()` flights had an arrival delay of two or more hours.
+
+`r flights |> filter(dest %in% c("IAH", "HOU")) |> nrow()` flights were destined for Houston.
+
+`r flights |> filter(arr_delay > 120, dep_delay <= 0) |> nrow()` flights arrived more than two hours late but did not depart late.
+
+`r flights |> filter(dep_delay >= 60, dep_delay - arr_delay > 30) |> nrow()` flights departed at least one hour late but made up more than 30 minutes during the flight.
+
+```{r}
+#| label: summarizing
+delay_table <- flights |>
+  summarize(
+    mean_dep_delay = mean(dep_delay, na.rm = TRUE),
+    .by = origin
+  ) |>
+  arrange(desc(mean_dep_delay))
+
+delay_table |>
+  kable(
+    col.names = c("Origin airport", "Mean departure delay (minutes)"),
+    digits = 2
+  )
+```
+
+`r delay_table$origin[1]` has the highest mean departure delay (`r round(delay_table$mean_dep_delay[1], 2)` minutes), and `r delay_table$origin[3]` has the lowest (`r round(delay_table$mean_dep_delay[3], 2)` minutes). Missing delays (cancelled flights) are ignored in the means.
+
+## More Data Visualization
+
+In the following we provide some more information about the flights of different airlines, about the age of planes departing for the three New York airports and the weekly precipitation on the three airports.
+
+### Graphs about airlines
+
+```{r}
+#| label: airline-flights
+airline_counts <- flights |>
+  left_join(airlines, join_by(carrier == carrier)) |>
+  count(name) |>
+  mutate(name = fct_reorder(name, n))
+
+ggplot(data = airline_counts, mapping = aes(x = n, y = name)) +
+  geom_col() +
+  labs(
+    title = "Number of Flights by Airline",
+    x = "Number of flights operated in 2013",
+    y = NULL
+  )
+```
+
+`r as.character(airline_counts$name[which.max(airline_counts$n)])` operated the most flights (`r max(airline_counts$n)`), while `r as.character(airline_counts$name[which.min(airline_counts$n)])` operated the fewest (`r min(airline_counts$n)`).
+
+```{r}
+#| label: airline-delay
+airline_dep_delay <- flights |>
+  left_join(airlines, join_by(carrier == carrier)) |>
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE), .by = name) |>
+  mutate(name = fct_reorder(name, mean_dep_delay))
+
+ggplot(data = airline_dep_delay, mapping = aes(x = mean_dep_delay, y = name)) +
+  geom_col() +
+  labs(
+    title = "Mean Departure Delay by Airline",
+    x = "Mean departure delay (minutes)",
+    y = NULL
+  )
+```
+
+The airline with the highest mean departure delay is `r as.character(airline_dep_delay$name[which.max(airline_dep_delay$mean_dep_delay)])` (`r round(max(airline_dep_delay$mean_dep_delay), 1)` minutes), the airline with the lowest is `r as.character(airline_dep_delay$name[which.min(airline_dep_delay$mean_dep_delay)])` (`r round(min(airline_dep_delay$mean_dep_delay), 1)` minutes).
+
+**Bonus:** mean departure and arrival delay side by side.
+
+```{r}
+#| label: airline-delay-both
+airline_delays_long <- flights |>
+  left_join(airlines, join_by(carrier == carrier)) |>
+  summarize(
+    departure = mean(dep_delay, na.rm = TRUE),
+    arrival = mean(arr_delay, na.rm = TRUE),
+    .by = name
+  ) |>
+  pivot_longer(
+    cols = c(departure, arrival),
+    names_to = "delay_type",
+    values_to = "mean_delay"
+  ) |>
+  mutate(name = fct_reorder(name, mean_delay, .fun = max))
+
+ggplot(
+  data = airline_delays_long,
+  mapping = aes(x = mean_delay, y = name, fill = delay_type)
+) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Mean Departure and Arrival Delay by Airline",
+    x = "Mean delay (minutes)",
+    y = NULL,
+    fill = "Delay type"
+  )
+```
+
+For most airlines the mean arrival delay is smaller than the mean departure delay, which means that airlines make up some time in the air. For some airlines the mean arrival delay is even negative (they arrive early on average).
+
+### Age of planes by departure airport
+
+```{r}
+#| label: planes-age
+planes_by_origin <- flights |>
+  inner_join(
+    planes |> rename(year_manufactured = year),
+    join_by(tailnum == tailnum)
+  ) |>
+  left_join(
+    airports |> select(faa, airport_name = name),
+    join_by(origin == faa)
+  ) |>
+  count(year_manufactured, airport_name)
+
+ggplot(
+  data = planes_by_origin,
+  mapping = aes(x = year_manufactured, y = n)
+) +
+  geom_col() +
+  facet_wrap(~ airport_name, ncol = 1) +
+  labs(
+    title = "Departing Flights by Year of Manufacture of the Plane",
+    x = "Year the plane was manufactured",
+    y = "Number of departing flights"
+  )
+```
+
+I arranged the three facets in one column, because with a common x-axis below each other the distributions can be compared best by position. Most flights are operated by planes that were manufactured after about 1995–2000, and the distributions look similar for the three airports, although the shapes differ somewhat in detail. Flights with a missing tail number or a tail number not contained in `planes` are not shown.
+
+### Weekly precipitation
+
+```{r}
+#| label: weekly-precipitation
+weekly_precip <- weather |>
+  mutate(
+    date = as.Date(paste(year, month, day, sep = "-")),
+    week = week(date)
+  ) |>
+  summarize(
+    total_precip = sum(precip, na.rm = TRUE),
+    .by = c(week, origin)
+  )
+
+ggplot(
+  data = weekly_precip,
+  mapping = aes(x = week, y = total_precip, color = origin)
+) +
+  geom_line() +
+  labs(
+    title = "Total Weekly Precipitation at the Three NYC Airports",
+    x = "Week of the year (2013)",
+    y = "Total precipitation (inches)",
+    color = "Origin airport"
+  )
+```
+
+```{r}
+#| label: wettest-week
+#| echo: false
+wettest <- weekly_precip |> slice_max(total_precip, n = 1, with_ties = FALSE)
+```
+
+The three airports show very similar weekly patterns, since they are close to each other. The wettest week at any airport was week `r wettest$week` at `r wettest$origin` with `r round(wettest$total_precip, 2)` inches of precipitation.
+
+## Data Audit
+
+### Strange Airports
+
+```{r}
+#| label: strangeairportlocations
+ggplot(
+  data = airports |> filter(lon > 0),
+  mapping = aes(x = lon, y = lat, color = tzone)
+) +
+  geom_point() +
+  geom_text(aes(label = faa), vjust = -0.5) +
+  labs(
+    title = "Airports with Unusual Coordinates",
+    x = "Longitude",
+    y = "Latitude",
+    color = "Time zone"
+  )
+```
+
+```{r}
+#| label: strange-table
+strange_airports <- airports |> filter(lon > 0)
+
+strange_airports |>
+  select(faa, name, lat, lon, tzone) |>
+  kable(digits = 2)
+```
+
+Most airports in the contiguous United States have negative longitudes because they are west of Greenwich. However, some locations in the Aleutian Islands lie east of the 180° meridian and can have positive longitudes. The four airports shown here have positive longitude values, so their coordinates need to be examined individually.  `r nrow(strange_airports)` airports shown here have a positive longitude.
+
+**Hypotheses:** The four airports have unusual positive longitude values, but they do not all have the same explanation. DVT (Phoenix Deer Valley Airport) is located in Arizona, and MYF (Montgomery-Gibbs Executive Airport) is located in California. Their positive longitudes indicate incorrect coordinate data, since both airports are west of Greenwich. EEN (Dillant/Hopkins Airport) is located in New Hampshire. Its latitude and longitude appear to have been switched, and the longitude sign is also incorrect. SYA (Eareckson Air Station) is different: it is located on Shemya Island in the western Aleutian Islands of Alaska. Because the Aleutian Islands cross the 180° meridian, SYA legitimately has a positive longitude. Therefore, not all four airports are genuine eastern-longitude locations.
+
+### A join puzzle
+
+Here we explore the number of rows when we compare left-joins with switched dataframes:\
+`flights |> left_join(airports, join_by(dest == faa))`
+
+```{r}
+flights |> left_join(airports, join_by(dest == faa)) |> glimpse()
+```
+
+`airports |> left_join(flights, join_by(faa == dest))`
+
+```{r}
+airports |> left_join(flights, join_by(faa == dest)) |> glimpse()
+```
+
+```{r}
+#| label: join-counts
+n_join1 <- flights |> left_join(airports, join_by(dest == faa)) |> nrow()
+n_join2 <- airports |> left_join(flights, join_by(faa == dest)) |> nrow()
+
+n_unused_airports <- airports |> anti_join(flights, join_by(faa == dest)) |> nrow()
+n_lost_flights    <- flights |> anti_join(airports, join_by(dest == faa)) |> nrow()
+```
+
+We have `r nrow(flights)` flights and `r nrow(airports)` airports.
+
+If we left-join to `flights` the `airport` information of the flights destinations, we get the same number of `r n_join1` rows.
+
+If we left-join to `airports` the `flights` having the airport as destination, we get `r n_join2` rows. Rows of `airports` are duplicated for each flight going to it as destination, which increases the row count. However, the result is *smaller* than the number of flights.
+
+Why do we have `r n_join1 - n_join2` fewer rows in the second?
+
+```{r}
+# Airports with no flights departing from them
+airports |>
+  anti_join(flights, join_by(faa == origin)) |>
+  nrow()
+
+# Airports with no flights arriving at them
+airports |>
+  anti_join(flights, join_by(faa == dest)) |>
+  nrow()
+
+# Flights whose destinations are not listed in airports (by destination)
+flights |>
+  anti_join(airports, join_by(dest == faa)) |>
+  count(dest, sort = TRUE)
+
+# Count how often each destination occurs
+flights |>
+  count(dest, sort = TRUE)
+
+# Are there duplicate FAA codes in airports? (should return zero rows)
+airports |>
+  count(faa) |>
+  filter(n > 1)
+```
+
+**Answer:** Two effects work against each other.
+
+1. `r n_unused_airports` airports are never a destination. Each is kept once with `NA` flight data in `airports |> left_join(flights, ...)`, which *adds* rows.
+2. `r n_lost_flights` flights go to destinations that are missing from `airports` (BQN, PSE, SJU, STT). In the second join these flights have no matching airport row, so they are dropped, which *removes* rows.
+
+The second effect is larger, so the second join ends up with `r n_join1 - n_join2` fewer rows than the first (`r n_lost_flights` - `r n_unused_airports` = `r n_lost_flights - n_unused_airports`). Duplicate FAA codes in `airports` are not the cause, because `count(faa)` shows each code appears only once.
+
+## Own question: Does the time of day affect departure delays?
+
+**Question:** How does the average departure delay change over the course of the day, and is the pattern the same at EWR, JFK and LGA?
+
+```{r}
+#| label: own-question-plot
+#| warning: false
+delay_by_hour <- flights |>
+  filter(!is.na(dep_delay)) |>
+  summarize(
+    mean_dep_delay = mean(dep_delay),
+    n_flights = n(),
+    .by = c(hour, origin)
+  )
+
+ggplot(
+  data = delay_by_hour,
+  mapping = aes(x = hour, y = mean_dep_delay, color = origin)
+) +
+  geom_line() +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  labs(
+    title = "Mean Departure Delay by Scheduled Hour of the Day",
+    x = "Scheduled departure hour",
+    y = "Mean departure delay (minutes)",
+    color = "Origin airport"
+  )
+```
+
+```{r}
+#| label: own-question-table
+delay_by_hour_all <- flights |>
+  filter(!is.na(dep_delay)) |>
+  summarize(
+    mean_dep_delay = mean(dep_delay),
+    n_flights = n(),
+    .by = hour
+  ) |>
+  arrange(hour)
+
+delay_by_hour_all |>
+  kable(
+    col.names = c("Scheduled hour", "Mean departure delay (minutes)", "Number of flights"),
+    digits = 1
+  )
+```
+
+**Answer:** Yes, there is a clear pattern. Across all three airports the mean departure delay is lowest for the scheduled hour `r delay_by_hour_all$hour[which.min(delay_by_hour_all$mean_dep_delay)]` (`r round(min(delay_by_hour_all$mean_dep_delay), 1)` minutes) and highest for the scheduled hour `r delay_by_hour_all$hour[which.max(delay_by_hour_all$mean_dep_delay)]` (`r round(max(delay_by_hour_all$mean_dep_delay), 1)` minutes). Delays tend to increase during the day. One possible explanation is that late-arriving aircraft can cause delays to their subsequent departures. However, this analysis shows an association between scheduled departure time and average departure delay; it does not establish the cause of the pattern. and so the evening flights are typically more delayed than the early-morning flights. The three airports follow the same overall pattern, but the lines show that some airports are more affected than others (see the figure). A practical conclusion for travellers is: For travellers who want to reduce their average departure-delay risk, early-morning flights may be a better option, although this does not guarantee an on-time departure.
